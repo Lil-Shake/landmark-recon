@@ -1,0 +1,276 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Leshan Buddha Viewer</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: full-height 3D stage on the left, control column on the right (stacks below on phones); photo strip along the bottom. */
+:root {
+  --bg: #efebe7; --panel: #fbf9f7; --fg: #211c19; --muted: #6d625a; --line: #d9d0c8;
+  --accent: #a3472b; --ev0: #e8742a; --ev1: #e2b33c; --stage: #2a2d31;
+  --body: "Noto Sans SC", system-ui, -apple-system, "Segoe UI", sans-serif; --mono: "JetBrains Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #141211; --panel: #1d1a18; --fg: #ece5df; --muted: #a2968c; --line: #37302c; --accent: #e3906c; --stage: #0f1012; color-scheme: dark; } }
+:root[data-theme="dark"] { --bg: #141211; --panel: #1d1a18; --fg: #ece5df; --muted: #a2968c; --line: #37302c; --accent: #e3906c; --stage: #0f1012; color-scheme: dark; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.5 var(--body); overflow: hidden; }
+.app { height: 100%; display: grid; grid-template-columns: minmax(0, 1fr) 300px; grid-template-rows: minmax(0, 1fr) auto; }
+@media (max-width: 820px) { body { overflow: auto; } .app { height: auto; grid-template-columns: 1fr; grid-template-rows: 62vh auto auto; } }
+.stage { position: relative; background: var(--stage); min-height: 0; overflow: hidden; }
+#c { position: absolute; display: block; touch-action: none; }
+.msg { position: absolute; inset: 0; display: grid; place-items: center; color: #cfc8c2; font: 13px var(--mono); pointer-events: none; text-align: center; padding: 16px; }
+.msg[hidden] { display: none; }
+#photo { position: absolute; pointer-events: none; display: none; object-fit: fill; }
+#wbar { position: absolute; width: 2px; background: #fff; box-shadow: 0 0 0 1px #0007; display: none; pointer-events: none; }
+.chip { position: absolute; font: 600 11px var(--mono); color: #fff; background: #000a; padding: 3px 7px; border-radius: 4px; pointer-events: none; }
+.side { background: var(--panel); border-left: 1px solid var(--line); overflow: auto; padding: 14px max(16px, env(safe-area-inset-right, 0px)) 14px 16px; display: grid; gap: 16px; align-content: start; }
+@media (max-width: 820px) { .side { border-left: 0; border-top: 1px solid var(--line); padding-left: max(16px, env(safe-area-inset-left, 0px)); } }
+h1 { font-size: 18px; margin: 0; }
+.sub { color: var(--muted); font-size: 12.5px; margin: 2px 0 0; }
+.grp { display: grid; gap: 6px; }
+.lbl { font: 600 10.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.seg { display: flex; flex-wrap: wrap; gap: 6px; }
+button { font: 600 12.5px var(--body); color: var(--fg); background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 5px 9px; cursor: pointer; }
+button:hover { border-color: var(--muted); }
+button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.kv { display: grid; gap: 3px; font-variant-numeric: tabular-nums; }
+.kv div { display: flex; justify-content: space-between; gap: 8px; }
+.kv span:last-child { font-family: var(--mono); font-weight: 600; }
+.legend { display: grid; gap: 4px; font-size: 12.5px; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+#meas { display: grid; gap: 4px; font: 12.5px var(--mono); }
+#meas small { color: var(--muted); display: block; }
+.note { font-size: 12.5px; color: var(--muted); margin: 0; }
+.strip { grid-column: 1 / -1; border-top: 1px solid var(--line); background: var(--panel); padding: 8px max(16px, env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); display: grid; gap: 6px; min-width: 0; }
+.strip-head { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: space-between; }
+.thumbs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
+.thumbs button { padding: 0; border-width: 2px; flex: 0 0 auto; border-radius: 5px; overflow: hidden; line-height: 0; }
+.thumbs button[aria-pressed="true"] { border-color: var(--accent); }
+.thumbs img { height: 64px; width: auto; display: block; }
+#credit { font-size: 12px; color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
+#credit a { color: var(--accent); }
+#wipe { width: 180px; accent-color: var(--accent); }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+</style>
+
+<div class="app">
+  <div class="stage" id="stage">
+    <canvas id="c"></canvas>
+    <img id="photo" alt="与当前视角对应的真实照片">
+    <div id="wbar"></div>
+    <span class="chip" id="chipL" hidden>照片</span><span class="chip" id="chipR" hidden>模型</span>
+    <div class="msg" id="msg">正在加载模型（约 11 MB）…</div>
+  </div>
+
+  <aside class="side">
+    <div>
+      <h1 id="ttl">照片重建</h1>
+      <p class="sub" id="ver">Commons 照片 → COLMAP → 照片贴图 · 单位：米</p>
+    </div>
+    <div class="grp">
+      <div class="lbl">显示</div>
+      <div class="seg" role="group" aria-label="显示模式">
+        <button data-mode="photo" aria-pressed="true">照片贴图</button>
+        <button data-mode="clay" aria-pressed="false">纯几何</button>
+        <button data-mode="evidence" aria-pressed="false">证据</button>
+      </div>
+      <div class="legend" id="legend" hidden>
+        <span><i style="background:var(--ev0)"></i>0 张照片看到：无证据（贴图仅为邻近填充）</span>
+        <span><i style="background:#9b6bd6"></i>补洞面：几何是推断的，不是测量</span>
+        <span><i style="background:var(--ev1)"></i>1–2 张照片</span>
+        <span><i style="background:#ffffff;border:1px solid var(--line)"></i>3 张以上（不着色）</span>
+      </div>
+    </div>
+    <div class="grp">
+      <div class="lbl">视角</div>
+      <div class="seg">
+        <button data-view="front">正面</button><button data-view="side">侧面</button><button data-view="top">俯视</button><button data-view="head">佛头</button>
+        <button id="ortho" aria-pressed="false">正交</button>
+      </div>
+    </div>
+    <div class="grp">
+      <div class="lbl">尺寸（包围盒）</div>
+      <div class="kv" id="dims"><div><span>宽 X</span><span>–</span></div><div><span>高 Y</span><span>–</span></div><div><span>深 Z</span><span>–</span></div></div>
+      <p class="note" id="scalenote">比例依据：见 cameras_web.json → meta.scale_basis。</p>
+    </div>
+    <div class="grp">
+      <div class="lbl">量距</div>
+      <div class="seg"><button id="mbtn" aria-pressed="false">点两点量距</button><button id="clr">清除</button></div>
+      <div id="meas" aria-live="polite"></div>
+    </div>
+    <p class="note">模型、贴图和对比照片均来自 Wikimedia Commons，作者和许可证见下方每张照片。</p>
+  </aside>
+
+  <div class="strip">
+    <div class="strip-head">
+      <div class="lbl">和真实照片对比：点一张照片，相机跳到它的拍摄位置</div>
+      <div class="seg" id="cmpctl" hidden>
+        <label for="wipe" class="note">照片 ⇄ 模型</label>
+        <input id="wipe" type="range" min="0" max="100" value="50">
+        <button id="exitcmp">退出对比</button>
+      </div>
+    </div>
+    <div class="thumbs" id="thumbs" aria-label="真实照片列表"></div>
+    <div id="credit"></div>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+               "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+
+const $ = id => document.getElementById(id);
+const stage = $("stage"), canvas = $("c"), photo = $("photo"), wbar = $("wbar");
+const fail = e => { $("msg").hidden = false; $("msg").textContent = "模型没加载出来：" + (e && e.message ? e.message : e) + "。刷新页面重试。"; };
+window.addEventListener("error", e => fail(e.message));
+try { self.createImageBitmap = undefined; } catch (_) {}
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x2a2d31);
+const hemi = new THREE.HemisphereLight(0xffffff, 0x554433, 1.2); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(-60, 120, 140); scene.add(sun);
+const persp = new THREE.PerspectiveCamera(45, 1, 0.5, 5000);
+const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, -5000, 5000);
+let cam = persp, controls = new OrbitControls(cam, canvas);
+let mesh = null, mats = {}, box = new THREE.Box3(), size = new THREE.Vector3(), center = new THREE.Vector3();
+let compare = null, mode = "photo";
+const marks = new THREE.Group(); scene.add(marks);
+
+function layout() {
+  const W = stage.clientWidth, H = stage.clientHeight;
+  let w = W, h = H, x = 0, y = 0;
+  if (compare) { const a = compare.aspect; if (W / H > a) { w = H * a; x = (W - w) / 2; } else { h = W / a; y = (H - h) / 2; } }
+  Object.assign(canvas.style, { left: x + "px", top: y + "px", width: w + "px", height: h + "px" });
+  Object.assign(photo.style, { left: x + "px", top: y + "px", width: w + "px", height: h + "px" });
+  renderer.setSize(w, h, false);
+  persp.aspect = w / h; persp.updateProjectionMatrix();
+  const s = Math.max(size.x, size.y) * 0.6 || 50, a = w / h;
+  ortho.left = -s * a; ortho.right = s * a; ortho.top = s; ortho.bottom = -s; ortho.updateProjectionMatrix();
+  wipe(); placeChips(x, y, w, h);
+}
+function placeChips(x, y, w) { Object.assign($("chipL").style, { left: x + 8 + "px", top: y + 8 + "px" }); Object.assign($("chipR").style, { left: x + w - 50 + "px", top: y + 8 + "px" }); }
+new ResizeObserver(layout).observe(stage);
+
+function setCam(c) { const p = cam.position.clone(), q = cam.quaternion.clone(); cam = c; cam.position.copy(p); cam.quaternion.copy(q);
+  controls.dispose(); controls = new OrbitControls(cam, canvas); controls.target.copy(center); controls.update(); layout(); }
+const VIEWS = { front: [0, 0.15, 1], side: [1, 0.1, 0.15], top: [0, 1, 0.02], head: null };
+function view(k) {
+  exitCompare();
+  if (k === "head") { const h = VIEWS.headTarget || [center.x, box.max.y * 0.8, center.z]; controls.target.set(...h); cam.position.set(h[0], h[1] + 3, h[2] + Math.max(size.x, size.y) * 0.45); controls.update(); return; }
+  const d = new THREE.Vector3(...VIEWS[k]).normalize(); controls.target.copy(center);
+  cam.position.copy(controls.target).addScaledVector(d, Math.max(size.x, size.y) * 1.35); controls.update();
+}
+document.querySelectorAll("[data-view]").forEach(b => b.onclick = () => view(b.dataset.view));
+$("ortho").onclick = () => { const on = cam === persp; exitCompare(); setCam(on ? ortho : persp); $("ortho").setAttribute("aria-pressed", on); };
+
+function setMode(m) {
+  mode = m; if (mesh) mesh.material = mats[m];
+  document.querySelectorAll("[data-mode]").forEach(b => b.setAttribute("aria-pressed", b.dataset.mode === m));
+  $("legend").hidden = m !== "evidence";
+}
+document.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => setMode(b.dataset.mode));
+
+// ---- load geometry (base64 GLB) + texture + camera list ----
+const tex = new THREE.TextureLoader().load("albedo.jpg", t => { t.flipY = false; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.needsUpdate = true; });
+Promise.all([fetch("geom.glb.b64.txt").then(r => { if (!r.ok) throw new Error("geom " + r.status); return r.text(); }),
+             fetch("cameras_web.json").then(r => r.json())]).then(([b64, camsData]) => {
+  const bin = atob(b64.trim()), buf = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+  new GLTFLoader().parse(buf.buffer, "", g => {
+    g.scene.traverse(o => { if (o.isMesh && !mesh) mesh = o; });
+    const geo = mesh.geometry; geo.computeVertexNormals();
+    const ev = geo.getAttribute("_evidence") || geo.getAttribute("_EVIDENCE");
+    const fl = geo.getAttribute("_filled") || geo.getAttribute("_FILLED"); const cF = new THREE.Color(0x9b6bd6);
+    const col = new Float32Array(geo.attributes.position.count * 3);
+    const c0 = new THREE.Color(0xe8742a), c1 = new THREE.Color(0xe2b33c), c3 = new THREE.Color(0xffffff);
+    let zero = 0;
+    for (let i = 0; i < geo.attributes.position.count; i++) {
+      const n = ev ? ev.getX(i) : 3; const c = (fl && fl.getX(i) > 0.5 && n < 0.5) ? cF : n < 0.5 ? c0 : n < 3 ? c1 : c3; if (n < 0.5) zero++;
+      col.set([c.r, c.g, c.b], i * 3);
+    }
+    geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
+    mats.photo = new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide });
+    mats.clay = new THREE.MeshStandardMaterial({ color: 0xb9b1a8, roughness: 0.92, side: THREE.DoubleSide });
+    mats.evidence = new THREE.MeshBasicMaterial({ map: tex, vertexColors: true, side: THREE.DoubleSide });
+    mesh.material = mats.photo; scene.add(g.scene);
+    box.setFromObject(g.scene); box.getSize(size); box.getCenter(center);
+    $("dims").innerHTML = `<div><span>宽 X</span><span>${size.x.toFixed(1)} m</span></div><div><span>高 Y</span><span>${size.y.toFixed(1)} m</span></div><div><span>深 Z</span><span>${size.z.toFixed(1)} m</span></div><div><span>三角面</span><span>${(geo.index.count / 3 / 1000).toFixed(0)} k</span></div><div><span>无证据顶点</span><span>${(zero / geo.attributes.position.count * 100).toFixed(1)}%</span></div>`;
+    const meta = camsData.meta || {}; if (meta.title) { $("ttl").textContent = meta.title; document.title = meta.title; }
+    if (meta.subtitle) $("ver").textContent = meta.subtitle; if (meta.scale_basis) $("scalenote").textContent = "比例依据：" + meta.scale_basis;
+    if (meta.head_target) VIEWS.headTarget = meta.head_target;
+    $("msg").hidden = true; layout(); view("front");
+    buildStrip(camsData.cameras);
+  }, fail);
+}).catch(fail);
+
+// ---- compare with real photos ----
+function buildStrip(list) {
+  const t = $("thumbs");
+  list.forEach(c => {
+    const b = document.createElement("button"); b.setAttribute("aria-pressed", "false"); b.title = c.id;
+    b.innerHTML = `<img src="thumbs/${c.id}.jpg" alt="照片 ${c.id}" loading="lazy">`;
+    b.onclick = () => enterCompare(c, b); t.appendChild(b);
+  });
+}
+function enterCompare(c, btn) {
+  if (cam !== persp) { setCam(persp); $("ortho").setAttribute("aria-pressed", false); }
+  compare = c; controls.enabled = false;
+  document.querySelectorAll(".thumbs button").forEach(b => b.setAttribute("aria-pressed", b === btn));
+  persp.fov = c.fov_y; cam.position.set(...c.position); cam.quaternion.set(...c.quaternion); persp.updateProjectionMatrix();
+  photo.src = `photos/${c.id}.jpg`; photo.style.display = "block"; wbar.style.display = "block";
+  $("chipL").hidden = $("chipR").hidden = false; $("cmpctl").hidden = false;
+  const s = c.source || {};
+  $("credit").innerHTML = `照片 ${c.id}：${esc(s.artist || "作者不详")} · ${esc(s.license || "")} · <a href="${s.page || "#"}" target="_blank" rel="noopener">Commons 原页面</a>${s.date ? " · " + esc(String(s.date).replace(/<[^>]+>/g, "")) : ""}`;
+  layout();
+}
+function exitCompare() {
+  if (!compare) return; compare = null; controls.enabled = true; persp.fov = 45; persp.updateProjectionMatrix();
+  photo.style.display = "none"; wbar.style.display = "none"; $("chipL").hidden = $("chipR").hidden = true; $("cmpctl").hidden = true;
+  document.querySelectorAll(".thumbs button").forEach(b => b.setAttribute("aria-pressed", "false")); $("credit").textContent = "";
+  controls.target.copy(center); controls.update(); layout();
+}
+$("exitcmp").onclick = exitCompare;
+function wipe() {
+  if (!compare) return; const v = +$("wipe").value;
+  photo.style.clipPath = `inset(0 ${100 - v}% 0 0)`;
+  const r = canvas.getBoundingClientRect(), s = stage.getBoundingClientRect();
+  Object.assign(wbar.style, { left: (r.left - s.left + r.width * v / 100) + "px", top: (r.top - s.top) + "px", height: r.height + "px" });
+}
+$("wipe").addEventListener("input", wipe);
+const esc = s => String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+
+// ---- measure ----
+let measuring = false, pending = null, n = 0, down = null;
+$("mbtn").onclick = () => { measuring = !measuring; $("mbtn").setAttribute("aria-pressed", measuring); pending = null; };
+$("clr").onclick = () => { marks.clear(); $("meas").innerHTML = ""; pending = null; n = 0; };
+const ray = new THREE.Raycaster();
+canvas.addEventListener("pointerdown", e => down = [e.clientX, e.clientY]);
+canvas.addEventListener("pointerup", e => {
+  if (!measuring || !mesh || !down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5) return;
+  const r = canvas.getBoundingClientRect();
+  ray.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1), cam);
+  const hit = ray.intersectObject(mesh)[0]; if (!hit) return;
+  const dot = new THREE.Mesh(new THREE.SphereGeometry(0.35), new THREE.MeshBasicMaterial({ color: 0xff6a2a, depthTest: false }));
+  dot.renderOrder = 9; dot.position.copy(hit.point); marks.add(dot);
+  if (!pending) { pending = hit.point.clone(); return; }
+  const a = pending, b = hit.point.clone(); pending = null; n++;
+  const ln = new THREE.Line(new THREE.BufferGeometry().setFromPoints([a, b]), new THREE.LineBasicMaterial({ color: 0xff6a2a, depthTest: false }));
+  ln.renderOrder = 9; marks.add(ln);
+  const d = b.clone().sub(a);
+  $("meas").insertAdjacentHTML("beforeend", `<div>#${n} ${d.length().toFixed(2)} m<small>Δx ${Math.abs(d.x).toFixed(2)} · Δy ${Math.abs(d.y).toFixed(2)} · Δz ${Math.abs(d.z).toFixed(2)} m</small></div>`);
+});
+renderer.setAnimationLoop(() => renderer.render(scene, cam));
+window.__viewer = { get size() { return size; }, get loaded() { return !!mesh && $("msg").hidden; }, compareFirst: () => document.querySelector(".thumbs button")?.click() };
+</script>
+
+</body></html>

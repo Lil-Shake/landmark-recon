@@ -1,0 +1,414 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<meta charset="utf-8">
+<title>Landmark Reconstructions</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;700&family=Noto+Sans+SC:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: full-bleed 3D stage with floating glass panels (Voyager/model-viewer style).
+   Top: landmark tabs. Left: title card + guided-tour caption. Right: tool panel. Bottom: photo strip / constellation.
+   Phones: panels become a bottom sheet under a 62vh stage. */
+:root {
+  --ink: #f4efe8; --ink-dim: #c9bfb4; --glass: rgba(24, 20, 18, .62); --glass-line: rgba(255, 255, 255, .14);
+  --accent: #e8945f; --accent-ink: #1b120c; --ev0: #e8742a; --ev1: #e2b33c; --fill: #9b6bd6;
+  --sky-top: #1c2230; --sky-mid: #6b5a4e; --sky-low: #c7926a; --bg: #14110f;
+  --display: "Noto Serif SC", "Songti SC", serif; --body: "Noto Sans SC", system-ui, -apple-system, sans-serif; --mono: "JetBrains Mono", ui-monospace, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  --glass: rgba(252, 248, 243, .78); --ink: #231c17; --ink-dim: #6f6258; --glass-line: rgba(40, 30, 20, .14); --accent: #b4532c; --accent-ink: #fff;
+  --sky-top: #9fb6cc; --sky-mid: #e8d9c5; --sky-low: #f2c9a1; --bg: #efe9e2; color-scheme: light; } }
+:root[data-theme="light"] { --glass: rgba(252, 248, 243, .78); --ink: #231c17; --ink-dim: #6f6258; --glass-line: rgba(40, 30, 20, .14); --accent: #b4532c; --accent-ink: #fff;
+  --sky-top: #9fb6cc; --sky-mid: #e8d9c5; --sky-low: #f2c9a1; --bg: #efe9e2; color-scheme: light; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 var(--body); overflow: hidden; }
+.stage { position: fixed; inset: 0; background: radial-gradient(120% 90% at 50% 100%, var(--sky-low) 0%, var(--sky-mid) 38%, var(--sky-top) 85%); }
+#c { position: absolute; display: block; touch-action: none; }
+#photo { position: absolute; pointer-events: none; display: none; }
+#wbar { position: absolute; width: 2px; background: #fff; box-shadow: 0 0 0 1px #0007; display: none; pointer-events: none; }
+.glass { background: var(--glass); border: 1px solid var(--glass-line); border-radius: 14px; backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2); box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+.top { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center; pointer-events: none; z-index: 5; }
+.top > * { pointer-events: auto; }
+.brand { font: 700 15px var(--display); padding: 8px 14px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; padding: 5px; }
+.tab { font: 600 13px var(--body); color: var(--ink); background: transparent; border: 0; border-radius: 9px; padding: 6px 12px; cursor: pointer; }
+.tab small { color: var(--ink-dim); font: 11px var(--mono); margin-left: 6px; }
+.tab[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); }
+.tab[aria-selected="true"] small { color: var(--accent-ink); opacity: .8; }
+.card { position: fixed; left: max(16px, env(safe-area-inset-left, 0px)); top: calc(70px + env(safe-area-inset-top, 0px)); width: min(340px, calc(100vw - 32px)); padding: 16px 18px; z-index: 4; }
+.card h1 { font: 700 26px/1.2 var(--display); margin: 0; text-wrap: balance; }
+.card .sub { color: var(--ink-dim); font-size: 12.5px; margin: 4px 0 10px; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stat b { display: block; font: 600 17px var(--mono); }
+.stat span { font-size: 11px; color: var(--ink-dim); }
+.note { font-size: 12px; color: var(--ink-dim); margin: 10px 0 0; }
+.tools { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); top: calc(70px + env(safe-area-inset-top, 0px)); width: 248px; padding: 12px; display: grid; gap: 12px; z-index: 4; max-height: calc(100vh - 230px); overflow: auto; }
+.lbl { font: 600 10px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 5px; }
+.seg { display: flex; flex-wrap: wrap; gap: 5px; }
+button { font: 500 12.5px var(--body); color: var(--ink); background: rgba(255,255,255,.06); border: 1px solid var(--glass-line); border-radius: 8px; padding: 5px 9px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.big { font: 600 14px var(--body); padding: 9px 12px; width: 100%; }
+kbd { font: 10px var(--mono); color: var(--ink-dim); border: 1px solid var(--glass-line); border-radius: 4px; padding: 0 4px; margin-left: 4px; }
+.kv { display: grid; gap: 2px; font-variant-numeric: tabular-nums; font-size: 12.5px; }
+.kv div { display: flex; justify-content: space-between; } .kv span:last-child { font-family: var(--mono); }
+.legend { display: grid; gap: 3px; font-size: 12px; margin-top: 6px; }
+.legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+#meas { display: grid; gap: 3px; font: 12px var(--mono); margin-top: 6px; } #meas small { color: var(--ink-dim); display: block; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.hot { position: absolute; transform: translate(-50%, -50%); z-index: 3; pointer-events: auto; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: opacity .25s; }
+.hot .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px rgba(232,148,95,.35), 0 0 14px rgba(232,148,95,.8); }
+.hot .tag { font: 600 12px var(--body); color: #fff; background: rgba(0,0,0,.55); padding: 2px 8px; border-radius: 99px; white-space: nowrap; }
+.hot.dim { opacity: .25; } .hot.dim .tag { display: none; }
+.caption { position: fixed; left: 50%; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); width: min(560px, calc(100vw - 32px)); padding: 14px 18px; z-index: 6; }
+.caption h2 { font: 700 18px var(--display); margin: 0 0 4px; } .caption p { margin: 0; color: var(--ink-dim); font-size: 13.5px; }
+.caption .row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+.dots { display: flex; gap: 5px; flex: 1; } .dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--glass-line); } .dots i.on { background: var(--accent); }
+.strip { position: fixed; left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px)); padding: 8px 10px; z-index: 4; display: grid; gap: 6px; }
+.strip-head { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; justify-content: space-between; font-size: 12.5px; color: var(--ink-dim); }
+.thumbs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; min-height: 60px; }
+.thumbs button { padding: 0; border-width: 2px; flex: 0 0 auto; border-radius: 6px; overflow: hidden; line-height: 0; background: none; }
+.thumbs img { height: 56px; width: auto; display: block; }
+#credit { font-size: 11.5px; color: var(--ink-dim); overflow-wrap: anywhere; } #credit a { color: var(--accent); }
+#cmpctl { display: flex; gap: 8px; align-items: center; } #wipe { width: 150px; }
+.chip { position: absolute; font: 600 11px var(--mono); color: #fff; background: #000a; padding: 3px 7px; border-radius: 4px; pointer-events: none; z-index: 3; }
+.loader { position: fixed; inset: 0; display: grid; place-items: center; z-index: 8; pointer-events: none; }
+.loader .box { padding: 18px 22px; min-width: 260px; text-align: center; }
+.bar { height: 4px; border-radius: 2px; background: var(--glass-line); overflow: hidden; margin-top: 10px; } .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+.hint { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 5; pointer-events: none; font-size: 13px; padding: 8px 14px; transition: opacity .6s; }
+@media (max-width: 860px) {
+  body { overflow: auto; } .stage { position: relative; height: 62vh; }
+  .card, .tools, .strip { position: static; width: auto; max-height: none; margin: 10px max(16px, env(safe-area-inset-left, 0px)); }
+  .top { position: absolute; } .caption { bottom: auto; top: calc(62vh - 120px); }
+}
+@media (prefers-reduced-motion: reduce) { .hot, .bar i, .hint { transition: none; } }
+</style>
+
+<div class="stage" id="stage">
+  <canvas id="c"></canvas><img id="photo" alt="与当前视角对应的真实照片"><div id="wbar"></div>
+  <span class="chip" id="chipL" hidden>照片</span><span class="chip" id="chipR" hidden>模型</span>
+  <div id="hots"></div><div class="hot" id="hlabel" hidden><span class="tag" style="background:#1e90ff">1.7 m</span></div>
+</div>
+<div class="top"><div class="brand glass">照片重建 · 地标</div><div class="tabs glass" id="tabs" role="tablist" aria-label="地标"></div></div>
+<div class="loader" id="loader"><div class="box glass"><div id="loadmsg">正在读取地标列表…</div><div class="bar"><i id="loadbar"></i></div></div></div>
+<div class="hint glass" id="hint" hidden>拖动旋转 · 滚轮缩放 · 点橙色标注</div>
+
+<section class="card glass" aria-live="polite">
+  <h1 id="ttl">—</h1><p class="sub" id="ver"></p>
+  <div class="stats" id="stats"></div>
+  <p class="note" id="scalenote"></p>
+</section>
+
+<aside class="tools glass">
+  <button class="big" id="tour" aria-pressed="false">▶ 开始导览<kbd>T</kbd></button>
+  <div><div class="lbl">显示</div>
+    <div class="seg" role="group" aria-label="显示模式"><button data-mode="photo" aria-pressed="true">照片<kbd>1</kbd></button><button data-mode="clay" aria-pressed="false">几何<kbd>2</kbd></button><button data-mode="evidence" aria-pressed="false">证据<kbd>3</kbd></button></div>
+    <div class="legend" id="legend" hidden><span><i style="background:var(--ev0)"></i>0 张照片看到</span><span><i style="background:var(--fill)"></i>补洞面（推断）</span><span><i style="background:var(--ev1)"></i>1–2 张照片</span></div>
+    <div id="todwrap" hidden style="margin-top:8px"><div class="lbl">日照时刻</div><input id="tod" type="range" min="0" max="100" value="35" aria-label="日照时刻"></div>
+  </div>
+  <div><div class="lbl">探索</div>
+    <div class="seg"><button id="cons" aria-pressed="false">照片星座<kbd>C</kbd></button><button id="human" aria-pressed="false">1.7 m 人</button><button id="hotsbtn" aria-pressed="true">标注</button><button id="spin" aria-pressed="false">自转</button></div></div>
+  <div><div class="lbl">视角</div>
+    <div class="seg"><button data-view="front">正面</button><button data-view="side">侧面</button><button data-view="top">俯视</button><button id="ortho" aria-pressed="false">正交</button></div></div>
+  <div><div class="lbl">量距（米）</div>
+    <div class="seg"><button id="mbtn" aria-pressed="false">点两点<kbd>M</kbd></button><button id="clr">清除</button></div><div id="meas" aria-live="polite"></div></div>
+  <div><div class="lbl">尺寸（包围盒）</div><div class="kv" id="dims"></div></div>
+</aside>
+
+<section class="caption glass" id="cap" hidden>
+  <h2 id="capt"></h2><p id="capx"></p>
+  <div class="row"><div class="dots" id="dots"></div><button id="prev">上一处</button><button id="next">下一处</button><button id="stop">结束</button></div>
+</section>
+
+<section class="strip glass">
+  <div class="strip-head"><span id="striplbl">真实照片</span>
+    <div id="cmpctl" hidden><span>照片 ⇄ 模型</span><input id="wipe" type="range" min="0" max="100" value="50" aria-label="照片与模型分界"><button id="exitcmp">退出对比</button></div></div>
+  <div class="thumbs" id="thumbs" aria-label="真实照片列表"></div><div id="credit"></div>
+</section>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+               "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const stage = $("stage"), canvas = $("c"), photo = $("photo"), wbar = $("wbar");
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const loading = (t, p) => { $("loader").hidden = !t; $("loadmsg").textContent = t || ""; $("loadbar").style.width = ((p ?? 0) * 100) + "%"; };
+try { self.createImageBitmap = undefined; } catch (_) {}
+
+// ---------- renderer, atmosphere ----------
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0; renderer.shadowMap.enabled = true;
+const scene = new THREE.Scene();
+const hemi = new THREE.HemisphereLight(0xdfe8ff, 0x5a4636, 0.9); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xfff1dc, 2.6); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); scene.add(sun, sun.target);
+const persp = new THREE.PerspectiveCamera(42, 1, 0.1, 5000), ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, -5000, 5000);
+let cam = persp, controls = new OrbitControls(cam, canvas); controls.enableDamping = true; controls.dampingFactor = 0.08;
+let cur = null, root = null, mesh = null, mats = {}, box = new THREE.Box3(), size = new THREE.Vector3(1, 1, 1), center = new THREE.Vector3(), R = 1;
+let compare = null, mode = "photo", loadToken = 0, camsList = [], base = "", atlasInfo = null;
+const marks = new THREE.Group(), consG = new THREE.Group(), humanG = new THREE.Group(); scene.add(marks, consG, humanG);
+const ray = new THREE.Raycaster();
+
+function layout() {
+  const W = stage.clientWidth, H = stage.clientHeight; let w = W, h = H, x = 0, y = 0;
+  if (compare) { const a = compare.aspect; if (W / H > a) { w = H * a; x = (W - w) / 2; } else { h = W / a; y = (H - h) / 2; } }
+  for (const el of [canvas, photo]) Object.assign(el.style, { left: x + "px", top: y + "px", width: w + "px", height: h + "px" });
+  renderer.setSize(w, h, false); persp.aspect = w / h; persp.updateProjectionMatrix();
+  const s = Math.max(size.x, size.y) * 0.6, a = w / h; Object.assign(ortho, { left: -s * a, right: s * a, top: s, bottom: -s }); ortho.updateProjectionMatrix();
+  Object.assign($("chipL").style, { left: x + 8 + "px", top: y + 8 + "px" }); Object.assign($("chipR").style, { left: x + w - 50 + "px", top: y + 8 + "px" });
+  wipe();
+}
+new ResizeObserver(layout).observe(stage);
+
+// ---------- smooth camera flights (Tween-style, no library) ----------
+let flight = null;
+const ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+function flyTo({ pos, target, quat, fov }, ms = 1600, done) {
+  const from = { pos: cam.position.clone(), target: controls.target.clone(), quat: cam.quaternion.clone(), fov: persp.fov };
+  const toQuat = quat || (() => { const m = new THREE.Matrix4().lookAt(pos, target, new THREE.Vector3(0, 1, 0)); return new THREE.Quaternion().setFromRotationMatrix(m); })();
+  flight = { t0: performance.now(), ms: reduce ? 1 : ms, from, to: { pos: pos.clone(), target: (target || pos.clone().add(new THREE.Vector3(0, 0, -1).applyQuaternion(toQuat).multiplyScalar(R * .5))).clone(), quat: toQuat, fov: fov ?? persp.fov }, done };
+  controls.enabled = false;
+}
+function stepFlight(now) {
+  if (!flight) return;
+  const k = Math.min(1, (now - flight.t0) / flight.ms), e = ease(k), f = flight.from, t = flight.to;
+  cam.position.lerpVectors(f.pos, t.pos, e); controls.target.lerpVectors(f.target, t.target, e);
+  cam.quaternion.slerpQuaternions(f.quat, t.quat, e); persp.fov = f.fov + (t.fov - f.fov) * e; persp.updateProjectionMatrix();
+  if (k >= 1) { const d = flight.done; flight = null; if (!compare) { controls.enabled = true; controls.update(); } d && d(); }
+}
+const VIEWS = { front: [0, 0.18, 1], side: [1, 0.12, 0.15], top: [0, 1, 0.05] };
+function viewPose(k) { // far enough that the model's height and width fit the frustum (tall statues clip at R * 1.35)
+  const d = new THREE.Vector3(...VIEWS[k]).normalize(), t = Math.tan(THREE.MathUtils.degToRad(persp.fov) / 2);
+  const fit = Math.max(size.y * 0.62 / t, Math.max(size.x, size.z) * 0.62 / (t * Math.max(persp.aspect, 0.5)));
+  return { pos: center.clone().addScaledVector(d, Math.max(R * 1.35, fit)), target: center.clone() }; }
+document.querySelectorAll("[data-view]").forEach(b => b.onclick = () => { exitCompare(); flyTo(viewPose(b.dataset.view)); });
+$("ortho").onclick = () => { const on = cam === persp; exitCompare(); const p = cam.position.clone(), q = cam.quaternion.clone(); cam = on ? ortho : persp; cam.position.copy(p); cam.quaternion.copy(q);
+  controls.dispose(); controls = new OrbitControls(cam, canvas); controls.enableDamping = true; controls.target.copy(center); controls.update(); layout(); $("ortho").setAttribute("aria-pressed", on); };
+$("spin").onclick = () => { const on = $("spin").getAttribute("aria-pressed") !== "true"; $("spin").setAttribute("aria-pressed", on); controls.autoRotate = on; controls.autoRotateSpeed = 0.7; };
+
+// ---------- display modes + time of day ----------
+function setMode(m) { mode = m; if (mesh) { mesh.material = mats[m]; mesh.castShadow = m === "clay"; }
+  document.querySelectorAll("[data-mode]").forEach(b => b.setAttribute("aria-pressed", b.dataset.mode === m)); $("legend").hidden = m !== "evidence"; $("todwrap").hidden = m !== "clay"; }
+document.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => setMode(b.dataset.mode));
+function setSun(v) { // v 0..100 : dawn (east, low, warm) -> noon -> dusk (west, low, warm)
+  const a = (v / 100) * Math.PI, el = Math.sin(a) * 1.2 + 0.08; const dir = new THREE.Vector3(Math.cos(a) * 1.0, el, 0.6).normalize();
+  sun.position.copy(center).addScaledVector(dir, R * 3); sun.target.position.copy(center);
+  const warm = 1 - Math.sin(a); sun.color.setRGB(1, 0.93 - 0.25 * warm, 0.84 - 0.45 * warm); sun.intensity = 1.2 + 2.2 * Math.sin(a);
+  const sh = sun.shadow.camera; sh.left = sh.bottom = -R; sh.right = sh.top = R; sh.near = 0.1; sh.far = R * 8; sh.updateProjectionMatrix();
+}
+$("tod").addEventListener("input", e => setSun(+e.target.value));
+
+// ---------- landmark loading ----------
+function disposeCurrent() {
+  if (!root) return; scene.remove(root); root.traverse(o => { if (o.isMesh) o.geometry.dispose(); });
+  Object.values(mats).forEach(m => { m.map?.dispose(); m.dispose(); }); mats = {}; root = mesh = null;
+  marks.clear(); consG.clear(); humanG.clear(); $("meas").innerHTML = ""; $("hots").innerHTML = ""; hots = []; $("hlabel").hidden = true;
+}
+async function fetchText(url, onp) {
+  const r = await fetch(url); if (!r.ok) throw new Error(url + " " + r.status);
+  const total = +r.headers.get("content-length") || 0, rd = r.body?.getReader?.(); if (!rd) return r.text();
+  const chunks = []; let got = 0; for (;;) { const { done, value } = await rd.read(); if (done) break; chunks.push(value); got += value.length; total && onp(got / total); }
+  return new TextDecoder().decode(await new Blob(chunks).arrayBuffer());
+}
+async function load(lm) {
+  const token = ++loadToken; stopTour(); exitCompare(); disposeCurrent(); cur = lm; base = lm.base;
+  document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", t.dataset.id === lm.id));
+  $("ttl").textContent = lm.title; $("ver").textContent = lm.subtitle || ""; $("scalenote").textContent = lm.scale_basis ? "比例依据：" + lm.scale_basis : "";
+  $("stats").innerHTML = (lm.stats || []).map(s => `<div class="stat"><b>${esc(s[0])}</b><span>${esc(s[1])}</span></div>`).join("");
+  $("dims").innerHTML = ""; $("thumbs").innerHTML = ""; $("credit").textContent = ""; $("cons").setAttribute("aria-pressed", "false"); $("human").setAttribute("aria-pressed", "false");
+  try { history.replaceState(null, "", "#" + lm.id); } catch (_) {}
+  loading(`正在加载 ${lm.title}…`, 0.02);
+  const texP = new THREE.TextureLoader().loadAsync(base + "albedo.jpg");
+  const [b64, camsData, tex] = await Promise.all([(lm.parts > 1 ? (async () => { let all = ""; for (let i = 0; i < lm.parts; i++) all += await fetchText(base + `geom.glb.b64.${i}.txt`, p => loading(`正在加载 ${lm.title}…`, 0.05 + 0.85 * (i + p) / lm.parts)); return all; })()
+                   : fetchText(base + "geom.glb.b64.txt", p => loading(`正在加载 ${lm.title}…`, 0.05 + 0.85 * p))), fetch(base + "cameras_web.json").then(r => r.json()), texP]);
+  if (token !== loadToken) { tex.dispose(); return; }
+  tex.flipY = false; tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+  const bin = atob(b64.trim()), buf = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+  const g = await new GLTFLoader().parseAsync(buf.buffer, ""); if (token !== loadToken) { tex.dispose(); return; }
+  g.scene.traverse(o => { if (o.isMesh && !mesh) mesh = o; });
+  const geo = mesh.geometry; geo.computeVertexNormals(); geo.computeBoundingSphere();
+  const ev = geo.getAttribute("_evidence") || geo.getAttribute("_EVIDENCE"), fl = geo.getAttribute("_filled") || geo.getAttribute("_FILLED");
+  const n = geo.attributes.position.count, col = new Float32Array(n * 3); let zero = 0;
+  const c0 = new THREE.Color(0xe8742a), c1 = new THREE.Color(0xe2b33c), cF = new THREE.Color(0x9b6bd6), c3 = new THREE.Color(0xffffff);
+  for (let i = 0; i < n; i++) { const e = ev ? ev.getX(i) : 3; const c = (fl && fl.getX(i) > 0.5 && e < 0.5) ? cF : e < 0.5 ? c0 : e < 3 ? c1 : c3; if (e < 0.5) zero++; col.set([c.r, c.g, c.b], i * 3); }
+  geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
+  mats.photo = new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide });
+  mats.clay = new THREE.MeshStandardMaterial({ color: 0xc8beb2, roughness: 0.93, side: THREE.DoubleSide });
+  mats.evidence = new THREE.MeshBasicMaterial({ map: tex, vertexColors: true, side: THREE.DoubleSide });
+  mesh.material = mats[mode]; mesh.castShadow = mesh.receiveShadow = true; root = g.scene; scene.add(root);
+  box.setFromObject(root); box.getSize(size); box.getCenter(center); R = Math.max(size.x, size.y, size.z);
+  persp.near = Math.max(0.05, R / 3000); persp.far = R * 60; persp.updateProjectionMatrix();
+  scene.fog = new THREE.Fog(new THREE.Color(getComputedStyle(document.documentElement).getPropertyValue("--sky-mid").trim() || "#6b5a4e"), R * 3, R * 12);
+  setSun(+$("tod").value);
+  $("dims").innerHTML = `<div><span>宽 X</span><span>${size.x.toFixed(1)} m</span></div><div><span>高 Y</span><span>${size.y.toFixed(1)} m</span></div><div><span>深 Z</span><span>${size.z.toFixed(1)} m</span></div>
+    <div><span>三角面</span><span>${(geo.index.count / 3 / 1000).toFixed(0)} k</span></div><div><span>无证据顶点</span><span>${(zero / n * 100).toFixed(1)}%</span></div>`;
+  camsList = camsData.cameras; atlasInfo = camsData.thumb_atlas || null;
+  $("striplbl").textContent = `真实照片 ${camsList.length} 张${lm.registered && lm.registered > camsList.length ? `（共注册 ${lm.registered} 张，按机位分布挑选）` : ""} · 点一张，镜头飞到它的拍摄位置`;
+  buildStrip(); buildHots(lm.annotations || []); buildHuman(lm.human_at);
+  loading(""); layout();
+  // intro: from far and high, ease into the front view (model-viewer / Voyager style)
+  const front = viewPose("front"); cam.position.copy(center).add(new THREE.Vector3(R * 1.6, R * 1.1, R * 3.2)); controls.target.copy(center); cam.lookAt(center);
+  flyTo(front, 2600, () => { const h = $("hint"); h.hidden = false; h.style.opacity = 1; setTimeout(() => { h.style.opacity = 0; setTimeout(() => h.hidden = true, 700); }, 2800); });
+}
+
+// ---------- surface hit helpers ----------
+function surfaceAt(xy, from = "front") {   // annotation anchors are given as model x,y; find the surface by casting from the front
+  const o = new THREE.Vector3(xy[0], xy[1], box.max.z + R), d = new THREE.Vector3(0, 0, -1);
+  if (from === "down") { o.set(xy[0], box.max.y + R, xy[1]); d.set(0, -1, 0); }
+  ray.set(o, d); const h = ray.intersectObject(mesh)[0]; return h ? { p: h.point, n: h.face.normal.clone().transformDirection(mesh.matrixWorld) } : null;
+}
+
+// ---------- annotations (hotspots) + guided tour ----------
+let hots = [], tourIdx = -1;
+function buildHots(list) {
+  const host = $("hots");
+  list.forEach((a, i) => { const s = a.at ? surfaceAt(a.at, a.from) : null; if (!s) return;
+    const el = document.createElement("div"); el.className = "hot"; el.innerHTML = `<span class="dot"></span><span class="tag">${esc(a.title)}</span>`;
+    el.onclick = () => { stopTour(false); showStop(hots.indexOf(h)); }; host.appendChild(el);
+    const h = { ...a, p: s.p, n: s.n, el }; hots.push(h); });
+  $("tour").hidden = hots.length === 0; $("hotsbtn").hidden = hots.length === 0;
+  $("dots").innerHTML = hots.map(() => "<i></i>").join("");
+}
+function stopPose(h) {   // look at the anchor mostly from the front (viewers' side), a little from above and along the surface normal
+  const n = h.n.clone(); n.y = 0; const dir = new THREE.Vector3(0, 0.22, 1).addScaledVector(n, 0.35).normalize(); const dist = (h.dist || 0.32) * R;
+  return { pos: h.p.clone().addScaledVector(dir, dist), target: h.p.clone() }; }
+function showStop(i) {
+  if (i < 0 || i >= hots.length) return; tourIdx = i; const h = hots[i]; exitCompare();
+  $("cap").hidden = false; $("capt").textContent = h.title; $("capx").textContent = h.text || "";
+  [...$("dots").children].forEach((d, k) => d.classList.toggle("on", k === i)); flyTo(stopPose(h), 1900);
+}
+let tourTimer = null;
+function startTour() { $("tour").setAttribute("aria-pressed", "true"); $("tour").innerHTML = "停止导览<kbd>T</kbd>"; let i = 0; showStop(i);
+  tourTimer = setInterval(() => { i++; if (i >= hots.length) { stopTour(); flyTo(viewPose("front"), 2200); return; } showStop(i); }, reduce ? 9000 : 6500); }
+function stopTour(hide = true) { clearInterval(tourTimer); tourTimer = null; $("tour").setAttribute("aria-pressed", "false"); $("tour").innerHTML = "▶ 开始导览<kbd>T</kbd>"; if (hide) $("cap").hidden = true; }
+$("tour").onclick = () => tourTimer ? stopTour() : startTour();
+$("next").onclick = () => { stopTour(false); showStop((tourIdx + 1) % hots.length); };
+$("prev").onclick = () => { stopTour(false); showStop((tourIdx - 1 + hots.length) % hots.length); };
+$("stop").onclick = () => { stopTour(); flyTo(viewPose("front")); };
+$("hotsbtn").onclick = () => { const on = $("hotsbtn").getAttribute("aria-pressed") !== "true"; $("hotsbtn").setAttribute("aria-pressed", on); $("hots").hidden = !on; };
+let occFrame = 0;
+function placeHots() {
+  if (!hots.length || $("hots").hidden) return; const r = canvas.getBoundingClientRect(), s = stage.getBoundingClientRect(); occFrame++;
+  for (const h of hots) {
+    const v = h.p.clone().project(cam); const vis = v.z < 1 && Math.abs(v.x) < 1.05 && Math.abs(v.y) < 1.05 && !compare;
+    h.el.hidden = !vis; if (!vis) continue;
+    h.el.style.left = (r.left - s.left + (v.x + 1) / 2 * r.width) + "px"; h.el.style.top = (r.top - s.top + (1 - v.y) / 2 * r.height) + "px";
+    if (occFrame % 12 === 0) { // fade when the anchor faces away or is hidden (model-viewer behaviour)
+      const toCam = cam.position.clone().sub(h.p).normalize(); let dim = h.n.dot(toCam) < 0.05;
+      if (!dim) { ray.set(h.p.clone().addScaledVector(toCam, R * 0.004), toCam); const hit = ray.intersectObject(mesh)[0]; dim = !!hit && hit.distance < cam.position.distanceTo(h.p) * 0.97; }
+      h.el.classList.toggle("dim", dim); }
+  }
+}
+
+// ---------- photo constellation: every registered camera as a little frustum with its photo ----------
+const texCache = new Map();
+function atlasTex(cb) { const key = base + atlasInfo.file; let e = texCache.get(key);
+  if (!e) { e = { t: null, q: [] }; texCache.set(key, e); new THREE.TextureLoader().load(key, t => { t.colorSpace = THREE.SRGBColorSpace; e.t = t; e.q.forEach(f => f(t)); e.q = []; }); }
+  if (e.t) cb(e.t); else e.q.push(cb); }
+function thumbHTML(c, H = 56) { // <img> for per-file thumbs, a cropped atlas cell otherwise
+  if (!(atlasInfo && c.atlas)) return `<img src="${base}thumbs/${c.id}.jpg" alt="照片 ${esc(c.id)}" loading="lazy">`;
+  const [x, y, w, h] = c.atlas, k = H / h, A = atlasInfo;
+  return `<span role="img" aria-label="照片 ${esc(c.id)}" style="display:block;width:${Math.round(w * k)}px;height:${H}px;background:url('${base}${A.file}') -${x * k}px -${y * k}px / ${A.w * k}px ${A.h * k}px no-repeat"></span>`; }
+function buildConstellation() {
+  consG.clear(); const tl = new THREE.TextureLoader(); const sz = R * 0.06;
+  camsList.forEach(c => {
+    const q = new THREE.Quaternion(...c.quaternion), h = sz, w = h * c.aspect, d = sz * 1.6;
+    const pts = [[-w, -h], [w, -h], [w, h], [-w, h]].map(([x, y]) => new THREE.Vector3(x / 2, y / 2, -d));
+    const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), pts[0], new THREE.Vector3(), pts[1], new THREE.Vector3(), pts[2], new THREE.Vector3(), pts[3], pts[0], pts[1], pts[1], pts[2], pts[2], pts[3], pts[3], pts[0]]);
+    const fr = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0xffc89a, transparent: true, opacity: 0.85, fog: false }));
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, fog: false, transparent: true, opacity: 0.95 }));
+    plane.position.z = -d; const grp = new THREE.Group(); grp.add(fr, plane); grp.position.set(...c.position); grp.quaternion.copy(q); grp.userData.cam = c; consG.add(grp);
+    if (atlasInfo && c.atlas) { // one sprite atlas per landmark; each frustum shows its own cell
+      const [x, y, w, hh] = c.atlas, A = atlasInfo; atlasTex(t0 => { const t = t0.clone(); t.repeat.set(w / A.w, hh / A.h); t.offset.set(x / A.w, 1 - (y + hh) / A.h); t.needsUpdate = true;
+        plane.material.map = t; plane.material.needsUpdate = true; });
+    } else tl.load(`${base}thumbs/${c.id}.jpg`, t => { t.colorSpace = THREE.SRGBColorSpace; plane.material.map = t; plane.material.needsUpdate = true; });
+  });
+}
+$("cons").onclick = () => { const on = $("cons").getAttribute("aria-pressed") !== "true"; $("cons").setAttribute("aria-pressed", on);
+  if (on && !consG.children.length) buildConstellation(); consG.visible = on;
+  if (on) { // frame the model plus the nearest 90% of cameras (a few far river/telephoto shots would shrink everything)
+    const ds = camsList.map(c => new THREE.Vector3(...c.position).distanceTo(center)).sort((a, b) => a - b); const r90 = ds[Math.floor(ds.length * 0.9)] || R;
+    const rad = Math.max(r90, R * 0.8); flyTo({ pos: center.clone().add(new THREE.Vector3(rad * 0.55, rad * 0.75, rad * 1.25)), target: center.clone() }, 2200); } };
+
+// ---------- 1.7 m person for scale ----------
+function buildHuman(at) {
+  // at = [x, z] (ray down to the floor) or [x, z, y] (explicit ground height, for crops that cut the floor away)
+  humanG.clear(); const s = at && at.length === 3 ? { p: new THREE.Vector3(at[0], at[2], at[1]) } : at ? surfaceAt(at, "down") : surfaceAt([center.x, box.max.z - size.z * 0.15], "down"); if (!s) return;
+  const mat = new THREE.MeshStandardMaterial({ color: 0x1e90ff, emissive: 0x0a3d7a, roughness: 0.5 });
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 1.05, 6, 12), mat); body.position.y = 0.75;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 12), mat); head.position.y = 1.57;
+  humanG.add(body, head); humanG.position.copy(s.p); humanG.visible = false;
+}
+$("human").onclick = () => { const on = $("human").getAttribute("aria-pressed") !== "true"; $("human").setAttribute("aria-pressed", on); humanG.visible = on; $("hlabel").hidden = !on;
+  // low camera a few metres in front of the person, looking up: person in the foreground, the monument towering behind
+  if (on) { const p = humanG.position.clone(); flyTo({ pos: p.clone().add(new THREE.Vector3(3, 2.2, 16)), target: p.clone().add(new THREE.Vector3(0, 7, -12)) }, 2000); } };
+function placeHuman() { const el = $("hlabel"); if (el.hidden || !humanG.children.length) return;
+  const v = humanG.position.clone().add(new THREE.Vector3(0, 2.0, 0)).project(cam); const r = canvas.getBoundingClientRect(), s = stage.getBoundingClientRect();
+  el.style.left = (r.left - s.left + (v.x + 1) / 2 * r.width) + "px"; el.style.top = (r.top - s.top + (1 - v.y) / 2 * r.height) + "px"; el.style.opacity = v.z < 1 ? 1 : 0; }
+
+// ---------- compare with a real photo (fly to its pose, then wipe) ----------
+function buildStrip() {
+  const t = $("thumbs");
+  camsList.forEach(c => { const b = document.createElement("button"); b.setAttribute("aria-pressed", "false"); b.title = c.id;
+    b.innerHTML = thumbHTML(c); b.onclick = () => enterCompare(c, b); t.appendChild(b); });
+}
+function enterCompare(c, btn) {
+  stopTour(); if (cam !== persp) $("ortho").click();
+  document.querySelectorAll(".thumbs button").forEach(b => b.setAttribute("aria-pressed", b === btn));
+  const s = c.source || {};
+  $("credit").innerHTML = `照片 ${esc(c.id)}：${esc(s.artist || "作者不详")} · ${esc(s.license || "")}${s.page ? ` · <a href="${esc(s.page)}" target="_blank" rel="noopener">原页面</a>` : ""}`;
+  flyTo({ pos: new THREE.Vector3(...c.position), quat: new THREE.Quaternion(...c.quaternion), fov: c.fov_y }, 1800, () => {
+    compare = c; controls.enabled = false; photo.src = `${base}photos/${c.id}.jpg`; photo.style.display = "block"; wbar.style.display = "block";
+    $("chipL").hidden = $("chipR").hidden = false; $("cmpctl").hidden = false; $("wipe").value = 50; layout(); });
+}
+function exitCompare() {
+  if (!compare) return; compare = null; controls.enabled = true; persp.fov = 42; persp.updateProjectionMatrix();
+  photo.style.display = "none"; wbar.style.display = "none"; $("chipL").hidden = $("chipR").hidden = true; $("cmpctl").hidden = true;
+  document.querySelectorAll(".thumbs button").forEach(b => b.setAttribute("aria-pressed", "false")); controls.target.copy(center); controls.update(); layout();
+}
+$("exitcmp").onclick = () => { exitCompare(); flyTo(viewPose("front")); };
+function wipe() { if (!compare) return; const v = +$("wipe").value; photo.style.clipPath = `inset(0 ${100 - v}% 0 0)`;
+  const r = canvas.getBoundingClientRect(), s = stage.getBoundingClientRect(); Object.assign(wbar.style, { left: (r.left - s.left + r.width * v / 100) + "px", top: (r.top - s.top) + "px", height: r.height + "px" }); }
+$("wipe").addEventListener("input", wipe);
+
+// ---------- measuring + clicking a frustum ----------
+let measuring = false, pending = null, nm = 0, down = null;
+$("mbtn").onclick = () => { measuring = !measuring; $("mbtn").setAttribute("aria-pressed", measuring); pending = null; };
+$("clr").onclick = () => { marks.clear(); $("meas").innerHTML = ""; pending = null; nm = 0; };
+canvas.addEventListener("pointerdown", e => down = [e.clientX, e.clientY]);
+canvas.addEventListener("pointerup", e => {
+  if (!mesh || !down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5) return;
+  const r = canvas.getBoundingClientRect(); ray.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1), cam);
+  if (consG.visible && consG.children.length && !measuring) { const hc = ray.intersectObjects(consG.children, true)[0];
+    if (hc) { let o = hc.object; while (o && !o.userData.cam) o = o.parent; if (o) { const c = o.userData.cam; enterCompare(c, [...document.querySelectorAll(".thumbs button")].find(b => b.title === c.id)); return; } } }
+  if (!measuring) return; const hit = ray.intersectObject(mesh)[0]; if (!hit) return;
+  const dot = new THREE.Mesh(new THREE.SphereGeometry(R / 300), new THREE.MeshBasicMaterial({ color: 0xff6a2a, depthTest: false, fog: false })); dot.renderOrder = 9; dot.position.copy(hit.point); marks.add(dot);
+  if (!pending) { pending = hit.point.clone(); return; }
+  const a = pending, b = hit.point.clone(); pending = null; nm++;
+  const ln = new THREE.Line(new THREE.BufferGeometry().setFromPoints([a, b]), new THREE.LineBasicMaterial({ color: 0xff6a2a, depthTest: false, fog: false })); ln.renderOrder = 9; marks.add(ln);
+  const d = b.clone().sub(a); $("meas").insertAdjacentHTML("beforeend", `<div>#${nm} ${d.length().toFixed(2)} m<small>Δx ${Math.abs(d.x).toFixed(2)} · Δy ${Math.abs(d.y).toFixed(2)} · Δz ${Math.abs(d.z).toFixed(2)}</small></div>`);
+});
+addEventListener("keydown", e => { if (e.target.tagName === "INPUT") return; const k = e.key.toLowerCase();
+  if (k === "1" || k === "2" || k === "3") setMode(["photo", "clay", "evidence"][+k - 1]); else if (k === "t") $("tour").click(); else if (k === "c") $("cons").click(); else if (k === "m") $("mbtn").click();
+  else if (k === "escape") { stopTour(); exitCompare(); } });
+
+renderer.setAnimationLoop(now => { stepFlight(now); if (controls.enabled) controls.update(); placeHots(); placeHuman(); renderer.render(scene, cam); });
+
+fetch("manifest.json").then(r => r.json()).then(list => {
+  list.forEach(lm => { const b = document.createElement("button"); b.className = "tab"; b.setAttribute("role", "tab"); b.dataset.id = lm.id;
+    b.innerHTML = `${esc(lm.title)}<small>${esc(lm.badge || "")}</small>`; b.onclick = () => load(lm).catch(e => loading("加载失败：" + e.message, 0)); $("tabs").appendChild(b); });
+  const want = location.hash.slice(1); const first = list.find(l => l.id === want) || list[0]; if (first) load(first).catch(e => loading("加载失败：" + e.message, 0));
+}).catch(e => loading("读取地标列表失败：" + e.message, 0));
+window.__gallery = { get loaded() { return !!mesh && $("loader").hidden && !flight; }, get size() { return size; }, get hots() { return hots.length; } };
+</script>
+
+</body></html>
